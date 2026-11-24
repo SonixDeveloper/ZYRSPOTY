@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: zryspoty-v1-0-5
+  group: zryspoty-v1-0-6
 
 jobs:
   desktop:
@@ -49,6 +49,16 @@ jobs:
           APPIMAGETOOL="$PWD/appimagetool" sh packaging/formats/linux.sh ZRYSPOTY packages appimage
           packages/ZRYSPOTY-Linux-x86_64.AppImage --appimage-extract >/dev/null
           cmp app.js squashfs-root/usr/share/zryspoty/app.js
+      - name: Test packaged playback in Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          dpkg-deb -x packages/ZRYSPOTY-Linux.deb browser-test
+          browser-test/usr/bin/zryspoty-player &
+          player=$!
+          trap 'kill "$player" 2>/dev/null || true' EXIT
+          curl --retry 5 --retry-connrefused -fsS 'http://127.0.0.1:42682/youtube?v=aB1-cD2_eF3' >/dev/null
+          node packaging/tests/playback-smoke.cjs browser-test/usr/share/zryspoty/index.html
       - uses: actions/upload-artifact@v4
         with:
           name: ZRYSPOTY-desktop
@@ -98,8 +108,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view v1.0.5 >/dev/null 2>&1; then
-            gh release upload v1.0.5 release/* --clobber
+          if gh release view v1.0.6 >/dev/null 2>&1; then
+            gh release upload v1.0.6 release/* --clobber
           else
-            gh release create v1.0.5 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.5' --notes 'Odtwarzanie Spotify i YouTube na ekranie ZRYSPOTY. APK jest podpisany kluczem testowym.'
+            gh release create v1.0.6 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.6' --notes 'Poprawiono uruchamianie odtwarzacza i dodano ponawianie oraz otwieranie utworów w serwisie. APK jest podpisany kluczem testowym.'
           fi

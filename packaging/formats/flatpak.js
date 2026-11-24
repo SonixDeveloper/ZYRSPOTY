@@ -17,7 +17,7 @@ app.connect('activate', () => {
         const uri = decision.get_navigation_action().get_request().get_uri();
         if (uri === home || uri.startsWith(home + '#')) return false;
         if (type === WebKit.PolicyDecisionType.NAVIGATION_ACTION &&
-            /^(http:\/\/127\.0\.0\.1:42681\/youtube\?|https:\/\/(open\.spotify\.com|www\.youtube\.com)\/embed\/)/.test(uri)) {
+            /^(http:\/\/127\.0\.0\.1:42682\/youtube\?|https:\/\/(open\.spotify\.com|www\.youtube\.com)\/embed\/)/.test(uri)) {
             return false;
         }
         decision.ignore();

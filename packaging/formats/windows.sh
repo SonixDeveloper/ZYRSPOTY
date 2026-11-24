@@ -41,7 +41,7 @@ with ZipFile(archive, 'w', ZIP_DEFLATED) as package:
                 package.writestr(name, path.read_text().replace('<head>', '<head><meta name="zryspoty-desktop-player">', 1))
             else:
                 package.write(path, name)
-    package.write(os.environ['ZRYSPOTY_PLAYER_WINDOWS'], 'ZRYSPOTY/zryspoty-player.exe')
+    package.write(os.environ['ZRYSPOTY_PLAYER_WINDOWS'], 'ZRYSPOTY/zryspoty-player-1.0.6.exe')
 payload = archive.getvalue()
 output.write_bytes(launcher.read_bytes() + payload + len(payload).to_bytes(4, 'little'))
 PY

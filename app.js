@@ -257,7 +257,7 @@ function musicEmbed(item) {
     return 'https://pl.zryspoty.player/youtube.html?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
   }
   if (desktopPlayer && location.protocol === 'file:') {
-    return 'http://127.0.0.1:42681/youtube?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
+    return 'http://127.0.0.1:42682/youtube?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
   }
   if (!webYouTubeEmbed) return null;
   return item.kind === 'video' ? 'https://www.youtube.com/embed/' + item.id + '?playsinline=1'
@@ -297,6 +297,35 @@ function renderMusicLinks() {
     player.dataset.androidPlayer = 'true';
   }
 
+  function openProvider(item, className, text) {
+    const link = tag('a', className, text);
+    link.href = item.url;
+    if (!nativeExternalLinks) link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    return link;
+  }
+
+  function showPlayer(item, embed) {
+    audio.pause();
+    const frame = tag('iframe');
+    frame.title = 'Odtwarzacz ' + item.service + ' – ' + musicTitle(item);
+    frame.src = embed;
+    frame.height = item.kind === 'track' ? '152' : '352';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+    if (item.service !== 'Spotify') frame.classList.add('youtube-player');
+    frame.allowFullscreen = true;
+    const now = tag('div', 'linked-now');
+    now.append(tag('strong', '', musicTitle(item)), button('Zamknij odtwarzacz', '×', closePlayer));
+    const actions = tag('div', 'linked-actions');
+    actions.append(openProvider(item, 'spotify-link', 'Otwórz w ' + item.service),
+      button('Załaduj ponownie odtwarzacz', 'Spróbuj ponownie', () => showPlayer(item, embed)));
+    const hint = tag('p', 'empty', 'Naciśnij Play w odtwarzaczu. Jeśli utwór się nie uruchamia, otwórz go w serwisie.');
+    player.replaceChildren(now, frame, hint, actions);
+    player.dataset.url = item.url;
+    player.scrollIntoView({block: 'start'});
+  }
+
   function showLinks() {
     results.replaceChildren();
     if (!musicLinks.length) {
@@ -307,33 +336,11 @@ function renderMusicLinks() {
       const row = tag('div', 'spotify-row');
       const info = tag('div');
       info.append(tag('strong', '', musicTitle(item)), tag('small', '', item.service));
-      const open = tag('a', 'spotify-link', 'Otwórz w ' + item.service);
-      open.href = item.url;
-      if (!nativeExternalLinks) open.target = '_blank';
-      open.rel = 'noopener noreferrer';
+      const open = openProvider(item, 'spotify-link', 'Otwórz w ' + item.service);
       row.append(info);
       const embed = musicEmbed(item);
       if (embed) {
-        const preview = button('Pokaż odtwarzacz: ' + musicTitle(item), '▶ Odtwórz tutaj', () => {
-          audio.pause();
-          const frame = tag('iframe');
-          frame.title = 'Odtwarzacz ' + item.service + ' – ' + musicTitle(item);
-          frame.src = embed;
-          frame.height = item.kind === 'track' ? '152' : '352';
-          frame.referrerPolicy = 'strict-origin-when-cross-origin';
-          frame.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
-          if (item.service !== 'Spotify') frame.classList.add('youtube-player');
-          frame.allowFullscreen = true;
-          const now = tag('div', 'linked-now');
-          now.append(tag('strong', '', musicTitle(item)), button('Zamknij odtwarzacz', '×', closePlayer));
-          const hint = tag('p', 'empty', item.service === 'Spotify'
-            ? 'Naciśnij Play w odtwarzaczu Spotify. Długość odtwarzania zależy od Spotify.'
-            : 'Naciśnij Play w odtwarzaczu YouTube.');
-          player.replaceChildren(now, frame, hint);
-          player.dataset.url = item.url;
-          player.scrollIntoView({block: 'start'});
-        });
-        row.append(preview);
+        row.append(button('Pokaż odtwarzacz: ' + musicTitle(item), '▶ Odtwórz tutaj', () => showPlayer(item, embed)));
       }
       row.append(open, button('Usuń z biblioteki: ' + musicTitle(item), '×', () => {
         musicLinks.splice(musicLinks.indexOf(item), 1);
