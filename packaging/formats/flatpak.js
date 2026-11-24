@@ -17,7 +17,7 @@ app.connect('activate', () => {
         const uri = decision.get_navigation_action().get_request().get_uri();
         if (uri === home || uri.startsWith(home + '#')) return false;
         decision.ignore();
-        if (uri.startsWith('https://open.spotify.com/') || uri.startsWith('https://spotify.link/')) {
+        if (/^https:\/\/(open\.spotify\.com|spotify\.link|www\.youtube\.com|music\.youtube\.com)\//.test(uri)) {
             Gio.AppInfo.launch_default_for_uri_async(uri, null, null, (object, result) => {
                 try { Gio.AppInfo.launch_default_for_uri_finish(result); }
                 catch (error) { logError(error); }

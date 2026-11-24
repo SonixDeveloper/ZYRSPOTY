@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 
 public class PlayerActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
+    private static final String PLAYER_HOST = "pl.zryspoty.player";
     private static final String HOME = "https://" + HOST + "/index.html";
     private static final int PICK_AUDIO = 1;
     private static final Pattern RANGE = Pattern.compile("bytes=(\\d+)-(\\d*)");
@@ -44,6 +45,13 @@ public class PlayerActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                if ("https".equals(url.getScheme()) && PLAYER_HOST.equals(url.getHost())) {
+                    return serveYouTubePlayer(url);
+                }
+                if (!request.isForMainFrame() && "https".equals(url.getScheme()) && !HOST.equals(url.getHost())) {
+                    return null;
+                }
                 return serveAsset(request);
             }
 
@@ -51,11 +59,12 @@ public class PlayerActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
                 if ("https".equals(url.getScheme()) && HOST.equals(url.getHost())) return false;
-                if (request.isForMainFrame() && "https".equals(url.getScheme()) && ("open.spotify.com".equals(url.getHost()) || "spotify.link".equals(url.getHost()))) {
+                if (!request.isForMainFrame()) return !"https".equals(url.getScheme());
+                if ("https".equals(url.getScheme()) && isMusicHost(url.getHost())) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, url));
                     } catch (ActivityNotFoundException error) {
-                        Toast.makeText(PlayerActivity.this, "Zainstaluj przeglądarkę lub Spotify.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PlayerActivity.this, "Zainstaluj przeglądarkę lub aplikację muzyczną.", Toast.LENGTH_SHORT).show();
                     }
                 }
                 return true;
@@ -81,6 +90,32 @@ public class PlayerActivity extends Activity {
         });
         setContentView(web);
         web.loadUrl(HOME);
+    }
+
+    private static boolean isMusicHost(String host) {
+        return "open.spotify.com".equals(host) || "spotify.link".equals(host) ||
+            "www.youtube.com".equals(host) || "music.youtube.com".equals(host);
+    }
+
+    private WebResourceResponse serveYouTubePlayer(Uri url) {
+        String id = url.getQueryParameter("v");
+        String list = url.getQueryParameter("list");
+        String videoPath;
+        if (!"/youtube.html".equals(url.getPath())) {
+            return response(404, "Not Found", new HashMap<>());
+        } else if (id != null && id.matches("[A-Za-z0-9_-]{11}")) {
+            videoPath = id + "?playsinline=1";
+        } else if (list != null && list.matches("[A-Za-z0-9_-]{2,100}")) {
+            videoPath = "videoseries?list=" + list;
+        } else {
+            return response(400, "Bad Request", new HashMap<>());
+        }
+        String html = "<!doctype html><meta charset=utf-8><meta name=referrer content=strict-origin-when-cross-origin>" +
+            "<style>html,body,iframe{margin:0;width:100%;height:100%;border:0}iframe{display:block}</style>" +
+            "<iframe title=YouTube referrerpolicy=strict-origin-when-cross-origin " +
+            "allow='autoplay; encrypted-media; picture-in-picture' src='https://www.youtube.com/embed/" +
+            videoPath + "'></iframe>";
+        return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8)));
     }
 
     private static WebResourceResponse response(int status, String reason, Map<String, String> headers) {
@@ -170,6 +205,12 @@ public class PlayerActivity extends Activity {
     public void onBackPressed() {
         if (web.canGoBack()) web.goBack();
         else super.onBackPressed();
+    }
+
+    @Override
+    protected void onPause() {
+        web.evaluateJavascript("document.querySelector('[data-android-player]')?.replaceChildren()", null);
+        super.onPause();
     }
 
     @Override

@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: zryspoty-v1-0-2
+  group: zryspoty-v1-0-3
 
 jobs:
   desktop:
@@ -88,8 +88,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view v1.0.2 >/dev/null 2>&1; then
-            gh release upload v1.0.2 release/* --clobber
+          if gh release view v1.0.3 >/dev/null 2>&1; then
+            gh release upload v1.0.3 release/* --clobber
           else
-            gh release create v1.0.2 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.2' --notes 'Dodano bibliotekę linków Spotify. APK jest podpisany kluczem testowym.'
+            gh release create v1.0.3 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.3' --notes 'Dodano linki i odtwarzanie YouTube oraz YouTube Music. APK jest podpisany kluczem testowym.'
           fi

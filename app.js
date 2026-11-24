@@ -29,8 +29,11 @@ const spotifyKinds = {track: 'Utwór', album: 'Album', playlist: 'Playlista', sh
 const spotifyOrigin = 'https://open.spotify.com';
 const useSpotifyEmbed = location.hostname !== 'appassets.androidplatform.net' &&
   !new URLSearchParams(location.search).has('externalSpotify');
-const spotifyLibrary = restore('zry-spotify-links').flatMap(item => {
-  const link = parseSpotifyLink(typeof item?.url === 'string' ? item.url : '');
+const androidApp = location.hostname === 'appassets.androidplatform.net';
+const webYouTubeEmbed = location.protocol === 'https:' ||
+  (location.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname));
+const musicLinks = restore('zry-spotify-links').flatMap(item => {
+  const link = parseMusicLink(typeof item?.url === 'string' ? item.url : '');
   return link ? [{...link, title: typeof item.title === 'string' ? item.title.slice(0, 120) : ''}] : [];
 });
 const all = () => [...demos, ...imports];
@@ -151,22 +154,67 @@ function parseSpotifyLink(value) {
   return {kind, id, url: spotifyOrigin + '/' + kind + '/' + id};
 }
 
-function spotifyTitle(item) {
-  return item.title || (item.id ? spotifyKinds[item.kind] + ' · ' + item.id : spotifyKinds.short + ' · ' + new URL(item.url).pathname.slice(1));
+function parseYouTubeLink(value) {
+  let url;
+  try { url = new URL(value); }
+  catch { return null; }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+
+  const host = url.hostname;
+  const music = host === 'music.youtube.com';
+  const short = host === 'youtu.be';
+  if (!music && !short && !['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)) return null;
+  const path = url.pathname.replace(/\/$/, '');
+  const root = music ? 'https://music.youtube.com' : 'https://www.youtube.com';
+  const service = music ? 'YouTube Music' : 'YouTube';
+
+  if (!short && path === '/playlist') {
+    const id = url.searchParams.get('list');
+    if (!id || !/^[A-Za-z0-9_-]{2,100}$/.test(id)) return null;
+    return {service, kind: 'playlist', id, key: 'youtube:playlist:' + id, url: root + '/playlist?list=' + id};
+  }
+
+  const id = path === '/watch' && !short ? url.searchParams.get('v')
+    : short ? /^\/([^/]+)$/.exec(path)?.[1]
+    : /^\/(?:shorts|live|embed)\/([^/]+)$/.exec(path)?.[1];
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  return {service, kind: 'video', id, key: 'youtube:video:' + id, url: root + '/watch?v=' + id};
 }
 
-function renderSpotify() {
-  const heading = tag('h2', '', 'Linki Spotify');
-  const helper = tag('p', 'empty', 'Wklej linki do utworów, albumów lub playlist. Każdy link wpisz w osobnym wierszu.');
+function parseMusicLink(value) {
+  const spotify = parseSpotifyLink(value);
+  return spotify ? {...spotify, service: 'Spotify', key: spotify.url} : parseYouTubeLink(value);
+}
+
+function musicTitle(item) {
+  return item.title || (item.id ? (item.kind === 'video' ? 'Utwór' : spotifyKinds[item.kind]) + ' · ' + item.id
+    : 'Link · ' + new URL(item.url).pathname.slice(1));
+}
+
+function musicEmbed(item) {
+  if (item.service === 'Spotify') {
+    return useSpotifyEmbed && item.id ? spotifyOrigin + '/embed/' + item.kind + '/' + item.id : null;
+  }
+  if (androidApp) {
+    return 'https://pl.zryspoty.player/youtube.html?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
+  }
+  if (!webYouTubeEmbed || !useSpotifyEmbed) return null;
+  return item.kind === 'video' ? 'https://www.youtube.com/embed/' + item.id + '?playsinline=1'
+    : 'https://www.youtube.com/embed/videoseries?list=' + item.id;
+}
+
+function renderMusicLinks() {
+  const heading = tag('h2', '', 'Linki muzyczne');
+  const helper = tag('p', 'empty', 'Wklej linki ze Spotify, YouTube lub YouTube Music. Każdy link wpisz w osobnym wierszu.');
   const form = tag('form', 'spotify-form');
-  const label = tag('label', '', 'Linki do Spotify');
+  const label = tag('label', '', 'Linki do utworów lub playlist');
   label.htmlFor = 'spotify-urls';
   const links = tag('textarea');
   links.id = 'spotify-urls';
   links.rows = 3;
   links.required = true;
   links.maxLength = 16000;
-  links.placeholder = 'https://open.spotify.com/track/…';
+  links.placeholder = 'https://music.youtube.com/watch?v=…';
   const titleLabel = tag('label', '', 'Nazwa (opcjonalnie, dla jednego linku)');
   titleLabel.htmlFor = 'spotify-title';
   const title = tag('input');
@@ -179,29 +227,41 @@ function renderSpotify() {
   const results = tag('div', 'spotify-results');
   const player = tag('div', 'spotify-embed');
 
+  function closePlayer() {
+    player.replaceChildren();
+    delete player.dataset.url;
+  }
+
+  if (androidApp) {
+    player.dataset.androidPlayer = 'true';
+  }
+
   function showLinks() {
     results.replaceChildren();
-    if (!spotifyLibrary.length) {
+    if (!musicLinks.length) {
       results.append(tag('p', 'empty', 'Zapisane linki pojawią się tutaj.'));
       return;
     }
-    spotifyLibrary.forEach(item => {
+    musicLinks.forEach(item => {
       const row = tag('div', 'spotify-row');
       const info = tag('div');
-      info.append(tag('strong', '', spotifyTitle(item)), tag('small', '', spotifyKinds[item.kind]));
-      const open = tag('a', 'spotify-link', 'Otwórz w Spotify');
+      info.append(tag('strong', '', musicTitle(item)), tag('small', '', item.service));
+      const open = tag('a', 'spotify-link', 'Otwórz w ' + item.service);
       open.href = item.url;
       if (useSpotifyEmbed) open.target = '_blank';
       open.rel = 'noopener noreferrer';
       row.append(info);
-      if (useSpotifyEmbed && item.id) {
-        const preview = button('Pokaż odtwarzacz Spotify: ' + spotifyTitle(item), '▶ Spotify', () => {
+      const embed = musicEmbed(item);
+      if (embed) {
+        const preview = button('Pokaż odtwarzacz: ' + musicTitle(item), '▶ Odtwórz tutaj', () => {
           audio.pause();
           const frame = tag('iframe');
-          frame.title = 'Odtwarzacz Spotify – ' + spotifyTitle(item);
-          frame.src = spotifyOrigin + '/embed/' + item.kind + '/' + item.id;
+          frame.title = 'Odtwarzacz ' + item.service + ' – ' + musicTitle(item);
+          frame.src = embed;
           frame.height = item.kind === 'track' ? '152' : '352';
+          frame.referrerPolicy = 'strict-origin-when-cross-origin';
           frame.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+          if (item.service !== 'Spotify') frame.classList.add('youtube-player');
           frame.allowFullscreen = true;
           player.replaceChildren(frame);
           player.dataset.url = item.url;
@@ -209,13 +269,10 @@ function renderSpotify() {
         });
         row.append(preview);
       }
-      row.append(open, button('Usuń z biblioteki: ' + spotifyTitle(item), '×', () => {
-        spotifyLibrary.splice(spotifyLibrary.indexOf(item), 1);
-        if (save('zry-spotify-links', spotifyLibrary)) feedback.textContent = 'Usunięto link.';
-        if (player.dataset.url === item.url) {
-          player.replaceChildren();
-          delete player.dataset.url;
-        }
+      row.append(open, button('Usuń z biblioteki: ' + musicTitle(item), '×', () => {
+        musicLinks.splice(musicLinks.indexOf(item), 1);
+        if (save('zry-spotify-links', musicLinks)) feedback.textContent = 'Usunięto link.';
+        if (player.dataset.url === item.url) closePlayer();
         showLinks();
       }));
       results.append(row);
@@ -226,22 +283,22 @@ function renderSpotify() {
     event.preventDefault();
     const entries = links.value.trim().split(/\s+/).filter(Boolean);
     if (!entries.length) {
-      feedback.textContent = 'Wklej co najmniej jeden link Spotify.';
+      feedback.textContent = 'Wklej co najmniej jeden link.';
       return;
     }
-    const known = new Set(spotifyLibrary.map(item => item.url));
+    const known = new Set(musicLinks.map(item => item.key));
     const rejected = [];
     let added = 0;
     let duplicate = 0;
     entries.forEach(value => {
-      const item = parseSpotifyLink(value);
+      const item = parseMusicLink(value);
       if (!item) { rejected.push(value); return; }
-      if (known.has(item.url)) { duplicate++; return; }
-      known.add(item.url);
-      spotifyLibrary.push({...item, title: entries.length === 1 ? title.value.trim() : ''});
+      if (known.has(item.key)) { duplicate++; return; }
+      known.add(item.key);
+      musicLinks.push({...item, title: entries.length === 1 ? title.value.trim() : ''});
       added++;
     });
-    const persisted = !added || save('zry-spotify-links', spotifyLibrary);
+    const persisted = !added || save('zry-spotify-links', musicLinks);
     feedback.textContent = [
       added && (persisted ? 'Zapisano: ' : 'Dodano w tej karcie: ') + added + '.',
       duplicate && 'Już w bibliotece: ' + duplicate + '.',
@@ -294,7 +351,7 @@ function render() {
   }
 
   if (view === 'spotify') {
-    renderSpotify();
+    renderMusicLinks();
     return;
   }
 
@@ -414,6 +471,13 @@ $('mute').onclick = () => {
 ['timeupdate', 'loadedmetadata', 'durationchange'].forEach(event => audio.addEventListener(event, syncTime));
 ['play', 'pause', 'ended'].forEach(event => audio.addEventListener(event, syncPlay));
 audio.addEventListener('ended', () => advance(1));
+audio.addEventListener('play', () => {
+  const embedded = content.querySelector('.spotify-embed');
+  if (embedded) {
+    embedded.replaceChildren();
+    delete embedded.dataset.url;
+  }
+});
 
 function openLibrary() {
   return new Promise((resolve, reject) => {

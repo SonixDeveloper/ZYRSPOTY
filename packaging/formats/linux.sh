@@ -26,7 +26,7 @@ LAUNCH
             mkdir "$temp/control"
             cat > "$temp/control/control" <<'CONTROL'
 Package: zryspoty
-Version: 1.0.2
+Version: 1.0.3
 Architecture: all
 Section: sound
 Priority: optional
@@ -46,13 +46,13 @@ CONTROL
 root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 # Preserve the browser's storage origin after the AppImage is unmounted.
 data=${XDG_DATA_HOME:-"$HOME/.local/share"}/zryspoty/appimage-1.0.1
-if [ ! -f "$data/.version-1.0.2" ]; then
+if [ ! -f "$data/.version-1.0.3" ]; then
     mkdir -p "$data"
     cp -r "$root/usr/share/zryspoty/assets" "$data/"
     cp "$root/usr/share/zryspoty/"*.js "$root/usr/share/zryspoty/"*.css \
         "$root/usr/share/zryspoty/"*.png "$root/usr/share/zryspoty/"*.webmanifest "$data/"
     cp "$root/usr/share/zryspoty/index.html" "$data/"
-    touch "$data/.version-1.0.2"
+    touch "$data/.version-1.0.3"
 fi
 exec xdg-open "$data/index.html"
 APPRUN
