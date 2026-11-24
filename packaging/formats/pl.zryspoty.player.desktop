@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ZRYSPOTY
+Comment=Lokalny odtwarzacz muzyki
+Exec=zryspoty
+Icon=pl.zryspoty.player
+Categories=AudioVideo;Audio;Player;
+Terminal=false

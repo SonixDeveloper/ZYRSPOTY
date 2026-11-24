@@ -1,15 +1,38 @@
-name: Publish ZRYSPOTY v1.0.0
+name: Publish ZRYSPOTY
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/release.yml']
   workflow_dispatch:
+
 permissions:
-  contents: write
+  contents: read
 concurrency:
-  group: zryspoty-v1-release
+  group: zryspoty-v1-0-1
+
 jobs:
-  publish:
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and inspect AppImage
+        run: |
+          curl -fLsS -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          echo 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool' | sha256sum -c -
+          chmod +x appimagetool
+          tar -xzf downloads/ZRYSPOTY-Linux.tar.gz
+          APPIMAGETOOL="$PWD/appimagetool" sh packaging/formats/linux.sh ZRYSPOTY downloads appimage
+          image=downloads/ZRYSPOTY-Linux-x86_64.AppImage
+          "$image" --appimage-extract >/dev/null
+          test -x squashfs-root/AppRun
+          test -f squashfs-root/usr/share/zryspoty/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZRYSPOTY-AppImage
+          path: downloads/*.AppImage
+          if-no-files-found: error
+
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,18 +43,39 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build APK
+      - name: Build and verify test APK
         run: |
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
           unzip -q downloads/ZRYSPOTY-Android-projekt.zip
           gradle -p ZRYSPOTY-Android assembleDebug
           cp ZRYSPOTY-Android/build/outputs/apk/debug/*-debug.apk downloads/ZRYSPOTY-Android.apk
-      - name: Publish release
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify downloads/ZRYSPOTY-Android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZRYSPOTY-APK
+          path: downloads/*.apk
+          if-no-files-found: error
+
+  publish:
+    if: ${{ !cancelled() }}
+    needs: [appimage, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish available files
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v1.0.0 >/dev/null 2>&1; then
-            gh release upload v1.0.0 downloads/* --clobber
+          mkdir -p release
+          cp downloads/*.deb downloads/*.flatpak downloads/*.exe release/
+          if gh release view v1.0.1 >/dev/null 2>&1; then
+            gh release upload v1.0.1 release/* --clobber
           else
-            gh release create v1.0.0 downloads/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.0' --notes 'Pakiety dla Linuksa, Windowsa 64-bit i testowy APK dla Androida.'
+            gh release create v1.0.1 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.1' --notes 'Pakiety instalacyjne dla Linuksa, Windowsa i Androida. APK jest podpisany kluczem testowym.'
           fi
