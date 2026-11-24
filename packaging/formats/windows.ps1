@@ -3,7 +3,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $source = $env:ZRYSPOTY_SELF
 $base = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'ZRYSPOTY'
 $folder = Join-Path $base 'ZRYSPOTY'
-$version = Join-Path $folder '.version-1.0.3'
+$version = Join-Path $folder '.version-1.0.4'
 $zip = New-TemporaryFile
 $stage = Join-Path $base ([Guid]::NewGuid().ToString('N'))
 try {

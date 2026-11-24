@@ -10,9 +10,66 @@ const demos = [
   ['puls', 'Puls', 'Velvet Circuit'],
 ].map(([id, title, artist]) => ({ id, title, artist, src: 'assets/' + id + '.mp3', art: 'assets/' + id + '.webp', duration: 32 }));
 
+const profilesStorageKey = 'zry-profiles';
+
+function readProfiles() {
+  const empty = {profiles: [], active: null, legacyOwner: null};
+  try {
+    const stored = JSON.parse(localStorage.getItem(profilesStorageKey));
+    if (!Array.isArray(stored?.profiles)) return empty;
+    const profiles = stored.profiles.filter(item =>
+      /^[a-f0-9]{32}$/.test(item?.id) && typeof item.name === 'string' && item.name.length >= 1 && item.name.length <= 32
+    );
+    return {
+      profiles,
+      active: profiles.some(item => item.id === stored.active) ? stored.active : null,
+      legacyOwner: profiles.some(item => item.id === stored.legacyOwner) ? stored.legacyOwner : null,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function profileScope(state) {
+  if (state.active === state.legacyOwner) return '';
+  return state.active || 'guest';
+}
+
+function cleanProfileName(value) {
+  return value.trim().replace(/\s+/g, ' ').normalize('NFC');
+}
+
+function addProfile(state, name, id) {
+  const normalized = name.toLocaleLowerCase('pl');
+  if (state.profiles.some(item => item.name.toLocaleLowerCase('pl') === normalized)) return null;
+  return {
+    profiles: [...state.profiles, {id, name}],
+    active: id,
+    legacyOwner: state.legacyOwner || id,
+  };
+}
+
+function randomId() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+const profileState = readProfiles();
+const activeProfile = profileState.profiles.find(item => item.id === profileState.active);
+const scope = profileScope(profileState);
+const scoped = key => scope ? key + ':' + scope : key;
+
+function activateProfile(next) {
+  try {
+    localStorage.setItem(profilesStorageKey, JSON.stringify(next));
+    location.reload();
+  } catch {
+    notify('Przeglądarka nie pozwala zapisać profilu.');
+  }
+}
+
 function restore(key) {
   try {
-    const value = JSON.parse(localStorage.getItem(key));
+    const value = JSON.parse(localStorage.getItem(scoped(key)));
     return Array.isArray(value) ? value : [];
   } catch { return []; }
 }
@@ -42,7 +99,7 @@ const format = seconds => Number.isFinite(seconds) ? Math.floor(seconds / 60) + 
 
 function save(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(scoped(key), JSON.stringify(value));
     return true;
   } catch {
     notify('Przeglądarka nie pozwala zapisać zmian.');
@@ -313,6 +370,70 @@ function renderMusicLinks() {
   content.append(heading, helper, form, player, results);
 }
 
+function renderProfiles() {
+  const label = tag('p', 'empty', 'Profile są zapisane tylko na tym urządzeniu. Każdy ma własne ulubione, linki, kolejkę i pliki audio.');
+  const list = tag('div', 'profile-list');
+
+  if (activeProfile) {
+    const active = tag('div', 'profile-row');
+    active.append(tag('strong', '', activeProfile.name), tag('span', 'empty', 'Aktywny profil'));
+    list.append(active);
+  }
+
+  for (const item of profileState.profiles) {
+    if (item.id === profileState.active) continue;
+    const choose = button('Wybierz profil ' + item.name, 'Wybierz profil', () => {
+      const latest = readProfiles();
+      if (latest.profiles.some(profile => profile.id === item.id)) {
+        activateProfile({...latest, active: item.id});
+      }
+    });
+    choose.className = 'profile-action';
+    const row = tag('div', 'profile-row');
+    row.append(tag('strong', '', item.name), choose);
+    list.append(row);
+  }
+
+  if (activeProfile) {
+    const leave = button('Wyloguj z profilu i używaj jako gość', 'Wyloguj', () => {
+      activateProfile({...readProfiles(), active: null});
+    });
+    leave.className = 'profile-action';
+    list.append(leave);
+  }
+
+  const form = tag('form', 'spotify-form profile-form');
+  const nameLabel = tag('label', '', 'Nazwa nowego profilu');
+  nameLabel.htmlFor = 'profile-name';
+  const field = tag('input');
+  field.id = 'profile-name';
+  field.required = true;
+  field.maxLength = 32;
+  const submit = tag('button', 'primary', 'Utwórz profil');
+  const feedback = tag('p', 'spotify-feedback');
+  feedback.setAttribute('role', 'status');
+  form.append(nameLabel, field, submit, feedback);
+  if (!profileState.profiles.length) {
+    form.append(tag('p', 'profile-note', 'Pierwszy profil zachowa Twoją obecną bibliotekę.'));
+  }
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const name = cleanProfileName(field.value);
+    if (!name || name.length > 32) {
+      feedback.textContent = 'Wpisz nazwę od 1 do 32 znaków.';
+      return;
+    }
+    const next = addProfile(readProfiles(), name, randomId());
+    if (!next) {
+      feedback.textContent = 'Profil o tej nazwie już istnieje. Wybierz go z listy.';
+      return;
+    }
+    activateProfile(next);
+  });
+  content.append(tag('h2', '', 'Profile'), label, list, form);
+}
+
 function render() {
   document.querySelectorAll('[data-view]').forEach(item => {
     const active = item.dataset.view === view;
@@ -326,7 +447,7 @@ function render() {
   $('like').setAttribute('aria-label', liked ? 'Usuń z ulubionych' : 'Dodaj do ulubionych');
   $('like').setAttribute('aria-pressed', String(Boolean(liked)));
 
-  if (view === 'spotify' && renderedView === view) return;
+  if (renderedView === view && ['spotify', 'profiles'].includes(view)) return;
   renderedView = view;
   content.replaceChildren();
 
@@ -352,6 +473,11 @@ function render() {
 
   if (view === 'spotify') {
     renderMusicLinks();
+    return;
+  }
+
+  if (view === 'profiles') {
+    renderProfiles();
     return;
   }
 
@@ -390,7 +516,7 @@ function navigate(target) {
 function syncView() {
   const target = location.hash.slice(1);
   if (target === view) return;
-  view = ['home', 'search', 'likes', 'files', 'spotify', 'queue'].includes(target) ? target : 'home';
+  view = ['home', 'search', 'likes', 'files', 'spotify', 'queue', 'profiles'].includes(target) ? target : 'home';
   render();
 }
 
@@ -438,6 +564,14 @@ function syncPlay() {
   $('play').setAttribute('aria-label', audio.paused ? 'Odtwórz' : 'Wstrzymaj');
 }
 
+const profileButton = $('profile-button');
+if (activeProfile) profileButton.textContent = Array.from(activeProfile.name)[0].toLocaleUpperCase('pl');
+profileButton.setAttribute('aria-label', activeProfile ? 'Profile, aktywny: ' + activeProfile.name : 'Profile, tryb gościa');
+profileButton.title = activeProfile?.name || 'Tryb gościa';
+window.addEventListener('storage', event => {
+  if (event.key === profilesStorageKey) location.reload();
+});
+
 document.querySelectorAll('[data-view]').forEach(item => item.onclick = () => {
   navigate(item.dataset.view);
   if (view === 'search') $('search').focus();
@@ -481,7 +615,7 @@ audio.addEventListener('play', () => {
 
 function openLibrary() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('zryspoty', 1);
+    const request = indexedDB.open(scoped('zryspoty'), 1);
     request.onupgradeneeded = () => request.result.createObjectStore('music', {keyPath: 'id'});
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -526,7 +660,7 @@ $('files').addEventListener('change', async event => {
   const files = [...event.target.files].filter(file => file.size && (file.type.startsWith('audio/') || /\.(mp3|m4a|flac|ogg|wav|aac|opus)$/i.test(file.name)));
   event.target.value = '';
   if (!files.length) return;
-  const records = files.map(file => ({id: 'local-' + Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join(''), file}));
+  const records = files.map(file => ({id: 'local-' + randomId(), file}));
   const db = await library;
   try {
     if (!db) throw new Error('Brak bazy lokalnej');

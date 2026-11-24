@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: zryspoty-v1-0-3
+  group: zryspoty-v1-0-4
 
 jobs:
   desktop:
@@ -23,6 +23,7 @@ jobs:
           node --check app.js
           node --check sw.js
           node packaging/tests/spotify-links.cjs
+          node packaging/tests/profiles.cjs
           sudo apt-get update -qq
           sudo apt-get install -y -qq flatpak clang lld llvm
       - name: Build and inspect desktop packages
@@ -88,8 +89,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view v1.0.3 >/dev/null 2>&1; then
-            gh release upload v1.0.3 release/* --clobber
+          if gh release view v1.0.4 >/dev/null 2>&1; then
+            gh release upload v1.0.4 release/* --clobber
           else
-            gh release create v1.0.3 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.3' --notes 'Dodano linki i odtwarzanie YouTube oraz YouTube Music. APK jest podpisany kluczem testowym.'
+            gh release create v1.0.4 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.4' --notes 'Dodano lokalne profile bez hasła i e-maila. APK jest podpisany kluczem testowym.'
           fi
