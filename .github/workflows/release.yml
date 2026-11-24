@@ -1,0 +1,37 @@
+name: Publish ZRYSPOTY v1.0.0
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: zryspoty-v1-release
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build APK
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          unzip -q downloads/ZRYSPOTY-Android-projekt.zip
+          gradle -p ZRYSPOTY-Android assembleDebug
+          cp ZRYSPOTY-Android/build/outputs/apk/debug/*-debug.apk downloads/ZRYSPOTY-Android.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.0.0 >/dev/null 2>&1; then
+            gh release upload v1.0.0 downloads/* --clobber
+          else
+            gh release create v1.0.0 downloads/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.0' --notes 'Pakiety dla Linuksa, Windowsa 64-bit i testowy APK dla Androida.'
+          fi
