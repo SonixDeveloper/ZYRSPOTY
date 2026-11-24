@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: zryspoty-v1-0-4
+  group: zryspoty-v1-0-5
 
 jobs:
   desktop:
@@ -18,6 +18,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: false
       - name: Validate web code and install packaging tools
         run: |
           node --check app.js
@@ -32,6 +36,11 @@ jobs:
           echo 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool' | sha256sum -c -
           chmod +x appimagetool
           mkdir -p packages
+          go test packaging/player/main.go packaging/player/main_test.go
+          export ZRYSPOTY_PLAYER_LINUX="$RUNNER_TEMP/zryspoty-player"
+          export ZRYSPOTY_PLAYER_WINDOWS="$RUNNER_TEMP/zryspoty-player.exe"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o "$ZRYSPOTY_PLAYER_LINUX" packaging/player/main.go
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w -H=windowsgui' -o "$ZRYSPOTY_PLAYER_WINDOWS" packaging/player/main.go
           tar -xzf downloads/ZRYSPOTY-Linux.tar.gz
           cmp app.js ZRYSPOTY/app.js
           sh packaging/formats/linux.sh ZRYSPOTY packages deb
@@ -89,8 +98,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view v1.0.4 >/dev/null 2>&1; then
-            gh release upload v1.0.4 release/* --clobber
+          if gh release view v1.0.5 >/dev/null 2>&1; then
+            gh release upload v1.0.5 release/* --clobber
           else
-            gh release create v1.0.4 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.4' --notes 'Dodano lokalne profile bez hasła i e-maila. APK jest podpisany kluczem testowym.'
+            gh release create v1.0.5 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.5' --notes 'Odtwarzanie Spotify i YouTube na ekranie ZRYSPOTY. APK jest podpisany kluczem testowym.'
           fi

@@ -53,8 +53,10 @@ assert.equal(parseMusic(origin + '/track/' + id).service, 'Spotify');
 assert.equal(parseMusic('https://youtu.be/' + video).url, 'https://www.youtube.com/watch?v=' + video);
 const embedSource = src.slice(src.indexOf('function musicEmbed('), src.indexOf('function renderMusicLinks('));
 const item = parseMusic('https://music.youtube.com/watch?v=' + video);
-const embedFor = (androidApp, webYouTubeEmbed, useSpotifyEmbed) =>
-    runInNewContext(embedSource + '\nmusicEmbed', {androidApp, webYouTubeEmbed, useSpotifyEmbed, spotifyOrigin: origin});
-assert.equal(embedFor(true, true, false)(item), 'https://pl.zryspoty.player/youtube.html?v=' + video);
-assert.equal(embedFor(false, true, true)(item), 'https://www.youtube.com/embed/' + video + '?playsinline=1');
-assert.equal(embedFor(false, false, true)(item), null);
+const embedFor = (androidApp, webYouTubeEmbed, desktopPlayer = false, protocol = 'https:') =>
+    runInNewContext(embedSource + '\nmusicEmbed', {androidApp, webYouTubeEmbed, desktopPlayer, location: {protocol}, spotifyOrigin: origin});
+assert.equal(embedFor(true, true)(item), 'https://pl.zryspoty.player/youtube.html?v=' + video);
+assert.equal(embedFor(false, true)(item), 'https://www.youtube.com/embed/' + video + '?playsinline=1');
+assert.equal(embedFor(false, false)(item), null);
+assert.equal(embedFor(false, false, true, 'file:')(item), 'http://127.0.0.1:42681/youtube?v=' + video);
+assert.equal(embedFor(true, true)(parseMusic(origin + '/track/' + id)), origin + '/embed/track/' + id);

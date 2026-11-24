@@ -3,7 +3,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $source = $env:ZRYSPOTY_SELF
 $base = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'ZRYSPOTY'
 $folder = Join-Path $base 'ZRYSPOTY'
-$version = Join-Path $folder '.version-1.0.4'
+$version = Join-Path $folder '.version-1.0.5'
 $zip = New-TemporaryFile
 $stage = Join-Path $base ([Guid]::NewGuid().ToString('N'))
 try {
@@ -26,6 +26,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $new 'index.html') -Destination $folder -Force
         New-Item -ItemType File -Path $version -Force | Out-Null
     }
+    Start-Process (Join-Path $folder 'zryspoty-player.exe') -WindowStyle Hidden
     Start-Process (Join-Path $folder 'index.html')
 } catch {
     Add-Type -AssemblyName System.Windows.Forms

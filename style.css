@@ -13,3 +13,5 @@ button[aria-pressed=true]{color:var(--accent)}.track button:not(.track-name){min
 
 .spotify-embed .youtube-player{height:auto;min-width:200px;min-height:200px;aspect-ratio:16/9;max-height:520px}
 button.avatar{width:44px;height:44px;min-height:44px;font-size:16px}.avatar:hover,.avatar.active{background:#5a3475}.profile-list{max-width:700px;margin:0 0 16px}.profile-list:empty{display:none}.profile-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.profile-action{padding:0 14px;border:1px solid #68517b;border-radius:8px;color:var(--accent);font-weight:650}.profile-action:hover{background:#271938}.profile-list>.profile-action{margin-top:12px}.profile-note{color:var(--muted);margin:0;font-size:14px}
+
+.linked-now{display:flex;align-items:center;justify-content:space-between;gap:12px}.linked-now button{min-width:44px}.spotify-embed{scroll-margin-top:12px}

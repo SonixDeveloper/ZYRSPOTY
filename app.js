@@ -84,8 +84,9 @@ let shuffle = false;
 let noticeTimer;
 const spotifyKinds = {track: 'Utwór', album: 'Album', playlist: 'Playlista', short: 'Link Spotify'};
 const spotifyOrigin = 'https://open.spotify.com';
-const useSpotifyEmbed = location.hostname !== 'appassets.androidplatform.net' &&
-  !new URLSearchParams(location.search).has('externalSpotify');
+const nativeExternalLinks = location.hostname === 'appassets.androidplatform.net' ||
+  new URLSearchParams(location.search).has('externalSpotify');
+const desktopPlayer = Boolean(document.querySelector('meta[name="zryspoty-desktop-player"]'));
 const androidApp = location.hostname === 'appassets.androidplatform.net';
 const webYouTubeEmbed = location.protocol === 'https:' ||
   (location.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname));
@@ -250,12 +251,15 @@ function musicTitle(item) {
 
 function musicEmbed(item) {
   if (item.service === 'Spotify') {
-    return useSpotifyEmbed && item.id ? spotifyOrigin + '/embed/' + item.kind + '/' + item.id : null;
+    return item.id ? spotifyOrigin + '/embed/' + item.kind + '/' + item.id : null;
   }
   if (androidApp) {
     return 'https://pl.zryspoty.player/youtube.html?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
   }
-  if (!webYouTubeEmbed || !useSpotifyEmbed) return null;
+  if (desktopPlayer && location.protocol === 'file:') {
+    return 'http://127.0.0.1:42681/youtube?' + (item.kind === 'video' ? 'v=' : 'list=') + item.id;
+  }
+  if (!webYouTubeEmbed) return null;
   return item.kind === 'video' ? 'https://www.youtube.com/embed/' + item.id + '?playsinline=1'
     : 'https://www.youtube.com/embed/videoseries?list=' + item.id;
 }
@@ -305,7 +309,7 @@ function renderMusicLinks() {
       info.append(tag('strong', '', musicTitle(item)), tag('small', '', item.service));
       const open = tag('a', 'spotify-link', 'Otwórz w ' + item.service);
       open.href = item.url;
-      if (useSpotifyEmbed) open.target = '_blank';
+      if (!nativeExternalLinks) open.target = '_blank';
       open.rel = 'noopener noreferrer';
       row.append(info);
       const embed = musicEmbed(item);
@@ -320,9 +324,14 @@ function renderMusicLinks() {
           frame.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
           if (item.service !== 'Spotify') frame.classList.add('youtube-player');
           frame.allowFullscreen = true;
-          player.replaceChildren(frame);
+          const now = tag('div', 'linked-now');
+          now.append(tag('strong', '', musicTitle(item)), button('Zamknij odtwarzacz', '×', closePlayer));
+          const hint = tag('p', 'empty', item.service === 'Spotify'
+            ? 'Naciśnij Play w odtwarzaczu Spotify. Długość odtwarzania zależy od Spotify.'
+            : 'Naciśnij Play w odtwarzaczu YouTube.');
+          player.replaceChildren(now, frame, hint);
           player.dataset.url = item.url;
-          player.scrollIntoView({block: 'nearest'});
+          player.scrollIntoView({block: 'start'});
         });
         row.append(preview);
       }
@@ -501,7 +510,7 @@ function render() {
     const term = $('search').value.trim();
     const spotify = tag('a', 'spotify-link', term ? 'Wyszukaj w Spotify' : 'Otwórz Spotify');
     spotify.href = term ? 'https://open.spotify.com/search/' + encodeURIComponent(term) : 'https://open.spotify.com/';
-    if (useSpotifyEmbed) spotify.target = '_blank';
+    if (!nativeExternalLinks) spotify.target = '_blank';
     spotify.rel = 'noopener noreferrer';
     content.append(spotify);
   }

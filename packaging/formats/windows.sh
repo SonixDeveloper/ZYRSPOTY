@@ -27,6 +27,7 @@ lld-link /nodefaultlib /entry:mainCRTStartup /subsystem:windows /out:"$temp/laun
     "$temp/launcher.obj" "$temp/kernel32.lib" "$temp/shell32.lib" "$temp/user32.lib"
 python3 - "$temp/launcher.exe" "$source_dir" "$output" <<'PY'
 from pathlib import Path
+import os
 import sys
 from zipfile import ZIP_DEFLATED, ZipFile
 from io import BytesIO
@@ -35,7 +36,12 @@ archive = BytesIO()
 with ZipFile(archive, 'w', ZIP_DEFLATED) as package:
     for path in sorted(source.rglob('*')):
         if path.is_file() and path.name not in ('Zainstaluj.sh', 'ZRYSPOTY'):
-            package.write(path, 'ZRYSPOTY/' + str(path.relative_to(source)))
+            name = 'ZRYSPOTY/' + str(path.relative_to(source))
+            if path.name == 'index.html':
+                package.writestr(name, path.read_text().replace('<head>', '<head><meta name="zryspoty-desktop-player">', 1))
+            else:
+                package.write(path, name)
+    package.write(os.environ['ZRYSPOTY_PLAYER_WINDOWS'], 'ZRYSPOTY/zryspoty-player.exe')
 payload = archive.getvalue()
 output.write_bytes(launcher.read_bytes() + payload + len(payload).to_bytes(4, 'little'))
 PY

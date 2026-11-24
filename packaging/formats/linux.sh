@@ -7,6 +7,7 @@ tools=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 temp=$(mktemp -d)
 trap 'rm -rf -- "$temp"' EXIT
 id=pl.zryspoty.player
+player=${ZRYSPOTY_PLAYER_LINUX:?Brak programu odtwarzacza}
 
 case "$format" in
     deb|appimage)
@@ -16,9 +17,12 @@ case "$format" in
         install -m644 "$source_dir/icon.png" "$app/usr/share/icons/hicolor/512x512/apps/$id.png"
         cp -r "$source_dir/." "$app/usr/share/zryspoty/"
         rm -f "$app/usr/share/zryspoty/Zainstaluj.sh" "$app/usr/share/zryspoty/ZRYSPOTY"
+        sed -i '/<head>/a<meta name="zryspoty-desktop-player">' "$app/usr/share/zryspoty/index.html"
+        install -m755 "$player" "$app/usr/bin/zryspoty-player"
         cat > "$app/usr/bin/zryspoty" <<'LAUNCH'
 #!/bin/sh
 base=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+"$base/bin/zryspoty-player" </dev/null >/dev/null 2>&1 &
 exec xdg-open "$base/share/zryspoty/index.html"
 LAUNCH
         chmod +x "$app/usr/bin/zryspoty"
@@ -26,8 +30,8 @@ LAUNCH
             mkdir "$temp/control"
             cat > "$temp/control/control" <<'CONTROL'
 Package: zryspoty
-Version: 1.0.4
-Architecture: all
+Version: 1.0.5
+Architecture: amd64
 Section: sound
 Priority: optional
 Maintainer: ZRYSPOTY <https://github.com/SonixDeveloper/ZYRSPOTY/issues>
@@ -46,14 +50,16 @@ CONTROL
 root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 # Preserve the browser's storage origin after the AppImage is unmounted.
 data=${XDG_DATA_HOME:-"$HOME/.local/share"}/zryspoty/appimage-1.0.1
-if [ ! -f "$data/.version-1.0.4" ]; then
+if [ ! -f "$data/.version-1.0.5" ]; then
     mkdir -p "$data"
     cp -r "$root/usr/share/zryspoty/assets" "$data/"
     cp "$root/usr/share/zryspoty/"*.js "$root/usr/share/zryspoty/"*.css \
         "$root/usr/share/zryspoty/"*.png "$root/usr/share/zryspoty/"*.webmanifest "$data/"
     cp "$root/usr/share/zryspoty/index.html" "$data/"
-    touch "$data/.version-1.0.4"
+    cp "$root/usr/bin/zryspoty-player" "$data/zryspoty-player"
+    touch "$data/.version-1.0.5"
 fi
+"$data/zryspoty-player" </dev/null >/dev/null 2>&1 &
 exec xdg-open "$data/index.html"
 APPRUN
             chmod +x "$app/AppRun"
@@ -65,13 +71,18 @@ APPRUN
         mkdir -p "$app/files/bin" "$app/files/share/zryspoty" "$app/export/share/applications" "$app/export/share/icons/hicolor/512x512/apps"
         cp -r "$source_dir/." "$app/files/share/zryspoty/"
         rm -f "$app/files/share/zryspoty/Zainstaluj.sh" "$app/files/share/zryspoty/ZRYSPOTY"
+        sed -i '/<head>/a<meta name="zryspoty-desktop-player">' "$app/files/share/zryspoty/index.html"
+        install -m755 "$player" "$app/files/bin/zryspoty-player"
         install -m644 "$tools/flatpak.js" "$app/files/share/zryspoty/"
         install -m644 "$tools/$id.desktop" "$app/export/share/applications/"
         mkdir -p "$app/files/share/icons/hicolor/512x512/apps"
         install -m644 "$source_dir/icon.png" "$app/files/share/icons/hicolor/512x512/apps/$id.png"
         cat > "$app/files/bin/zryspoty" <<'LAUNCH'
 #!/bin/sh
-exec gjs -m /app/share/zryspoty/flatpak.js
+/app/bin/zryspoty-player </dev/null >/dev/null 2>&1 &
+player=$!
+trap 'kill "$player" 2>/dev/null || true' EXIT
+gjs -m /app/share/zryspoty/flatpak.js
 LAUNCH
         chmod +x "$app/files/bin/zryspoty"
         cat > "$app/metadata" <<META
@@ -82,7 +93,7 @@ sdk=org.gnome.Sdk/$(flatpak --default-arch)/50
 command=zryspoty
 
 [Context]
-shared=ipc;
+shared=ipc;network;
 sockets=wayland;fallback-x11;pulseaudio;
 devices=dri;
 META
