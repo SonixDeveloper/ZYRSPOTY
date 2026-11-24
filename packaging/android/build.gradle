@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application' version '8.9.2'
+}
+
+android {
+    namespace 'pl.zryspoty.player'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'pl.zryspoty.player'
+        minSdk 23
+        targetSdk 34
+        versionCode 2
+        versionName '1.0.2'
+    }
+
+    sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/zryspotyAssets'))
+}
+
+tasks.register('syncWebAssets', Sync) {
+    def webRoot = file('web').isDirectory() ? file('web') : file('../..')
+    from(webRoot) {
+        include 'index.html', 'style.css', 'app.js', 'sw.js', 'manifest.webmanifest', 'icon*.png', 'assets/**'
+    }
+    into(layout.buildDirectory.dir('generated/zryspotyAssets'))
+}
+
+tasks.named('preBuild').configure { dependsOn('syncWebAssets') }

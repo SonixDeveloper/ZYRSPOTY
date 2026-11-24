@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#100e16"><title>ZRYSPOTY – Twoja muzyka</title>
+<link rel="stylesheet" href="style.css"><link rel="icon" href="icon.png"><link rel="manifest" href="manifest.webmanifest"><script defer src="app.js"></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<a class="brand" href="#home"><span class="logo" aria-hidden="true">◖≋</span> ZRY<span>SPOTY</span></a>
+<nav aria-label="Menu"><p class="label">MENU</p><button data-view="home">⌂ <span>Odkrywaj</span></button><button data-view="search">⌕ <span>Szukaj</span></button><button data-view="spotify">↗ <span>Linki Spotify</span></button><p class="label">TWOJA BIBLIOTEKA</p><button data-view="likes">♡ <span>Ulubione</span></button><button data-view="files">♫ <span>Moja muzyka</span></button><button data-view="queue">☷ <span>Kolejka</span></button></nav>
+<div class="import"><strong>Twoje brzmienie</strong><p>Dodaj własne pliki audio do biblioteki.</p><label class="upload">＋ Dodaj muzykę<input id="files" type="file" accept="audio/*,.mp3,.m4a,.flac,.ogg,.wav,.aac,.opus" multiple></label></div>
+</aside>
+<main>
+<header><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Szukaj utworów i wykonawców" aria-label="Szukaj utworów i wykonawców"></label><span class="avatar" aria-label="Biblioteka lokalna">Z</span></header>
+<div id="content"></div>
+</main>
+</div>
+<p id="notice" role="status"></p>
+<footer class="player" aria-label="Odtwarzacz">
+<div class="playing"><div id="now-art" class="art placeholder">♫</div><div><strong id="now-title">Wybierz utwór</strong><small id="now-artist">ZRYSPOTY</small></div><button id="like" aria-label="Dodaj do ulubionych" disabled>♡</button></div>
+<div class="transport"><div class="controls"><button id="shuffle" aria-label="Losowa kolejność" aria-pressed="false">⤨</button><button id="prev" aria-label="Poprzedni utwór">|◀</button><button id="play" aria-label="Odtwórz">▶</button><button id="next" aria-label="Następny utwór">▶|</button><button id="repeat" aria-label="Powtórz utwór" aria-pressed="false">↻</button></div><div class="timeline"><small id="elapsed">0:00</small><input id="seek" type="range" min="0" max="100" step=".1" value="0" aria-label="Pozycja odtwarzania"><small id="duration">0:00</small></div></div>
+<div class="extras"><button id="queue-button" aria-label="Pokaż kolejkę">☷</button><button id="mute" aria-label="Wycisz">◖))</button><input id="volume" type="range" min="0" max="1" step=".01" value=".75" aria-label="Głośność"></div>
+</footer>
+<audio id="audio" preload="metadata"></audio>
+</body>
+</html>

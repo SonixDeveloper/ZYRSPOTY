@@ -8,28 +8,41 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: zryspoty-v1-0-1
+  group: zryspoty-v1-0-2
 
 jobs:
-  appimage:
+  desktop:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and inspect AppImage
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate web code and install packaging tools
+        run: |
+          node --check app.js
+          node --check sw.js
+          node packaging/tests/spotify-links.cjs
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flatpak clang lld llvm
+      - name: Build and inspect desktop packages
         run: |
           curl -fLsS -o appimagetool https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
           echo 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool' | sha256sum -c -
           chmod +x appimagetool
+          mkdir -p packages
           tar -xzf downloads/ZRYSPOTY-Linux.tar.gz
-          APPIMAGETOOL="$PWD/appimagetool" sh packaging/formats/linux.sh ZRYSPOTY downloads appimage
-          image=downloads/ZRYSPOTY-Linux-x86_64.AppImage
-          "$image" --appimage-extract >/dev/null
-          test -x squashfs-root/AppRun
-          test -f squashfs-root/usr/share/zryspoty/index.html
+          cmp app.js ZRYSPOTY/app.js
+          sh packaging/formats/linux.sh ZRYSPOTY packages deb
+          sh packaging/formats/linux.sh ZRYSPOTY packages flatpak
+          sh packaging/formats/windows.sh ZRYSPOTY packages/ZRYSPOTY-Windows-x64.exe
+          APPIMAGETOOL="$PWD/appimagetool" sh packaging/formats/linux.sh ZRYSPOTY packages appimage
+          packages/ZRYSPOTY-Linux-x86_64.AppImage --appimage-extract >/dev/null
+          cmp app.js squashfs-root/usr/share/zryspoty/app.js
       - uses: actions/upload-artifact@v4
         with:
-          name: ZRYSPOTY-AppImage
-          path: downloads/*.AppImage
+          name: ZRYSPOTY-desktop
+          path: packages/
           if-no-files-found: error
 
   android:
@@ -50,35 +63,33 @@ jobs:
         run: |
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
           unzip -q downloads/ZRYSPOTY-Android-projekt.zip
+          cmp app.js ZRYSPOTY-Android/web/app.js
           gradle -p ZRYSPOTY-Android assembleDebug
-          cp ZRYSPOTY-Android/build/outputs/apk/debug/*-debug.apk downloads/ZRYSPOTY-Android.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify downloads/ZRYSPOTY-Android.apk
+          cp ZRYSPOTY-Android/build/outputs/apk/debug/*-debug.apk ZRYSPOTY-Android.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify ZRYSPOTY-Android.apk
       - uses: actions/upload-artifact@v4
         with:
           name: ZRYSPOTY-APK
-          path: downloads/*.apk
+          path: ZRYSPOTY-Android.apk
           if-no-files-found: error
 
   publish:
-    if: ${{ !cancelled() }}
-    needs: [appimage, android]
+    needs: [desktop, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: release
           merge-multiple: true
-      - name: Publish available files
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          mkdir -p release
-          cp downloads/*.deb downloads/*.flatpak downloads/*.exe release/
-          if gh release view v1.0.1 >/dev/null 2>&1; then
-            gh release upload v1.0.1 release/* --clobber
+          if gh release view v1.0.2 >/dev/null 2>&1; then
+            gh release upload v1.0.2 release/* --clobber
           else
-            gh release create v1.0.1 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.1' --notes 'Pakiety instalacyjne dla Linuksa, Windowsa i Androida. APK jest podpisany kluczem testowym.'
+            gh release create v1.0.2 release/* --target "$GITHUB_SHA" --title 'ZRYSPOTY 1.0.2' --notes 'Dodano bibliotekę linków Spotify. APK jest podpisany kluczem testowym.'
           fi

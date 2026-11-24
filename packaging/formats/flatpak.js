@@ -2,7 +2,7 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 import WebKit from 'gi://WebKit?version=6.0';
 
-const home = 'file:///app/share/zryspoty/index.html';
+const home = 'file:///app/share/zryspoty/index.html?externalSpotify=1';
 const app = new Gtk.Application({application_id: 'pl.zryspoty.player'});
 app.connect('activate', () => {
     if (app.active_window) {
@@ -17,7 +17,7 @@ app.connect('activate', () => {
         const uri = decision.get_navigation_action().get_request().get_uri();
         if (uri === home || uri.startsWith(home + '#')) return false;
         decision.ignore();
-        if (uri.startsWith('https://open.spotify.com/')) {
+        if (uri.startsWith('https://open.spotify.com/') || uri.startsWith('https://spotify.link/')) {
             Gio.AppInfo.launch_default_for_uri_async(uri, null, null, (object, result) => {
                 try { Gio.AppInfo.launch_default_for_uri_finish(result); }
                 catch (error) { logError(error); }
